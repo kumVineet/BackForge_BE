@@ -8,17 +8,18 @@ dotenv.config({ path: envFile });
 
 const config = {
   // Server Configuration
-  port: process.env.PORT || 3000,
+  port: process.env.PORT || (env === 'production' ? 4040 : 4041),
   nodeEnv: process.env.NODE_ENV || 'development',
   
   // API Configuration
   apiPrefix: process.env.API_PREFIX || '/api/v1',
   corsOrigin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000'],
   
-  // JWT Configuration
-  jwtSecret: process.env.JWT_SECRET || 'fallback-secret-key',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
-  refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d',
+  // JWT Configuration - Best Practices
+  jwtSecret: process.env.JWT_SECRET ,
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN , // Longer for dev
+  refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN , // 7 days instead of 30d
+  jwtRefreshThreshold: parseInt(process.env.JWT_REFRESH_THRESHOLD), // 5 minutes before expiry
   
   // Logging
   logLevel: process.env.LOG_LEVEL || 'info',
@@ -39,10 +40,10 @@ const config = {
   
   // AWS S3 Configuration
   aws: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION || 'us-east-1',
-    bucketName: process.env.AWS_S3_BUCKET
+    accessKeyId: env === 'production' ? process.env.PRODUCTION_AWS_ACCESS_KEY_ID : process.env.DEV_AWS_ACCESS_KEY_ID,
+    secretAccessKey: env === 'production' ? process.env.PRODUCTION_AWS_SECRET_ACCESS_KEY : process.env.DEV_AWS_SECRET_ACCESS_KEY,
+    region: env === 'production' ? process.env.PRODUCTION_AWS_REGION : process.env.DEV_AWS_REGION,
+    bucketName: env === 'production' ? process.env.PRODUCTION_S3_BUCKET : process.env.DEV_S3_BUCKET
   },
   
   // Cloudinary Configuration
@@ -61,6 +62,8 @@ const config = {
     ssl: process.env.DB_SSL === 'true'
   }
 };
+
+
 
 // Validate required configuration
 const validateConfig = () => {

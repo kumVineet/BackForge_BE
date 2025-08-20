@@ -24,13 +24,28 @@ const router = express.Router();
 // Validation middleware
 const validateRegistration = [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('mobile_number')
+    .matches(/^(\+?[1-9]\d{0,14}|0\d{9,14}|\+91\d{10})$/)
+    .withMessage('Valid mobile number is required (e.g., +1234567890, 09557978166, +919557978166, or 9557978166)'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
   body('role').optional().isIn(['user', 'admin']).withMessage('Role must be either user or admin')
 ];
 
 const validateLogin = [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('identifier')
+    .notEmpty()
+    .withMessage('Email or mobile number is required')
+    .custom((value) => {
+      // Check if it's a valid email or mobile number
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const mobileRegex = /^(\+?[1-9]\d{0,14}|0\d{9,14}|\+91\d{10})$/;
+      
+      if (!emailRegex.test(value) && !mobileRegex.test(value)) {
+        throw new Error('Please provide a valid email or mobile number');
+      }
+      return true;
+    }),
   body('password').notEmpty().withMessage('Password is required')
 ];
 
@@ -43,16 +58,26 @@ router.post('/register', validateRegistration, async (req, res, next) => {
       throw new ValidationError('Validation failed', errors.array());
     }
 
-    const { email, password, name, role = 'user' } = req.body;
+    const { email, mobile_number, password, name, role = 'user' } = req.body;
 
-    // Check if user already exists
-    const existingUser = await query(
+    // Check if user already exists with email
+    const existingUserByEmail = await query(
       'SELECT id FROM users WHERE email = $1',
       [email]
     );
 
-    if (existingUser.rows.length > 0) {
+    if (existingUserByEmail.rows.length > 0) {
       throw new ConflictError('User with this email already exists');
+    }
+
+    // Check if user already exists with mobile number
+    const existingUserByMobile = await query(
+      'SELECT id FROM users WHERE mobile_number = $1',
+      [mobile_number]
+    );
+
+    if (existingUserByMobile.rows.length > 0) {
+      throw new ConflictError('User with this mobile number already exists');
     }
 
     // Hash password
@@ -61,10 +86,10 @@ router.post('/register', validateRegistration, async (req, res, next) => {
 
     // Create user
     const result = await query(
-      `INSERT INTO users (email, password, name, role, created_at) 
-       VALUES ($1, $2, $3, $4, NOW()) 
-       RETURNING id, email, name, role, created_at`,
-      [email, hashedPassword, name, role]
+      `INSERT INTO users (email, mobile_number, password, name, role, created_at) 
+       VALUES ($1, $2, $3, $4, $5, NOW()) 
+       RETURNING id, email, mobile_number, name, role, created_at`,
+      [email, mobile_number, hashedPassword, name, role]
     );
 
     const user = result.rows[0];
@@ -77,6 +102,7 @@ router.post('/register', validateRegistration, async (req, res, next) => {
       user: {
         id: user.id,
         email: user.email,
+        mobile_number: user.mobile_number,
         name: user.name,
         role: user.role,
         created_at: user.created_at
@@ -101,12 +127,12 @@ router.post('/login', validateLogin, async (req, res, next) => {
       throw new ValidationError('Validation failed', errors.array());
     }
 
-    const { email, password } = req.body;
+    const { identifier, password } = req.body;
 
-    // Find user
+    // Find user by email or mobile number
     const result = await query(
-      'SELECT id, email, password, name, role, is_active FROM users WHERE email = $1',
-      [email]
+      'SELECT id, email, mobile_number, password, name, role, is_active FROM users WHERE email = $1 OR mobile_number = $1',
+      [identifier]
     );
 
     if (result.rows.length === 0) {
@@ -140,6 +166,7 @@ router.post('/login', validateLogin, async (req, res, next) => {
       user: {
         id: user.id,
         email: user.email,
+        mobile_number: user.mobile_number,
         name: user.name,
         role: user.role
       },
@@ -154,17 +181,44 @@ router.post('/login', validateLogin, async (req, res, next) => {
   }
 });
 
-// Refresh token endpoint
+// Refresh token endpoint with race condition protection
 router.post('/refresh', verifyRefreshToken, async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
     const user = req.user;
 
+    // Check if token is still valid and not revoked (race condition protection)
+    const tokenCheck = await query(
+      'SELECT is_revoked, expires_at FROM refresh_tokens WHERE token = $1',
+      [refreshToken]
+    );
+
+    if (tokenCheck.rows.length === 0) {
+      throw new AuthenticationError('Invalid refresh token');
+    }
+
+    const tokenData = tokenCheck.rows[0];
+    if (tokenData.is_revoked) {
+      throw new AuthenticationError('Refresh token has been revoked');
+    }
+
+    if (new Date() > new Date(tokenData.expires_at)) {
+      throw new AuthenticationError('Refresh token has expired');
+    }
+
     // Generate new token pair
     const tokens = await generateTokenPair(user.id, user.email, user.role, req);
 
-    // Revoke the old refresh token
-    await revokeRefreshToken(refreshToken);
+    // Revoke the old refresh token (atomic operation)
+    const revokeResult = await query(
+      'UPDATE refresh_tokens SET is_revoked = true WHERE token = $1 AND is_revoked = false RETURNING id',
+      [refreshToken]
+    );
+
+    if (revokeResult.rows.length === 0) {
+      // Token was already revoked by another request
+      throw new AuthenticationError('Refresh token has already been used');
+    }
 
     res.json({
       message: 'Tokens refreshed successfully',
@@ -219,6 +273,7 @@ router.get('/verify', authenticateToken, async (req, res, next) => {
       user: {
         id: req.user.id,
         email: req.user.email,
+        mobile_number: req.user.mobile_number,
         name: req.user.name,
         role: req.user.role
       }

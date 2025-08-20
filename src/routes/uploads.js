@@ -13,7 +13,9 @@ const {
 } = require('../middleware/upload');
 const { 
   uploadToCloud, 
-  deleteFromCloud 
+  deleteFromCloud,
+  generatePresignedUploadUrl,
+  generatePresignedDownloadUrl
 } = require('../utils/cloudStorage');
 const { 
   ValidationError, 
@@ -32,6 +34,177 @@ const validateUploadMetadata = [
   body('category').optional().isIn(['image', 'document', 'video', 'audio']).withMessage('Invalid category'),
   body('isPublic').optional().isBoolean().withMessage('isPublic must be a boolean')
 ];
+
+// Validation for presigned URL generation
+const validatePresignedUrlRequest = [
+  body('fileName').trim().isLength({ min: 1, max: 255 }).withMessage('File name is required and must be between 1 and 255 characters'),
+  body('fileType').optional().trim().isLength({ min: 1, max: 100 }).withMessage('File type must be between 1 and 100 characters'),
+  body('expiresIn').optional().isInt({ min: 300, max: 3600 }).withMessage('Expires in must be between 300 and 3600 seconds')
+];
+
+// Generate presigned upload URL for S3
+router.post('/presigned-upload-url',
+  authenticateToken,
+  validatePresignedUrlRequest,
+  async (req, res, next) => {
+    try {
+      // Check for validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new ValidationError('Validation failed', errors.array());
+      }
+
+      const { fileName, fileType, expiresIn = 3600 } = req.body;
+      const userId = req.user.id;
+
+      // Generate presigned upload URL
+      const presignedData = await generatePresignedUploadUrl(userId, fileName, fileType, expiresIn);
+
+      res.json({
+        message: 'Presigned upload URL generated successfully',
+        presignedUrl: presignedData.presignedUrl,
+        s3Key: presignedData.s3Key,
+        expiresIn: presignedData.expiresIn,
+        bucket: presignedData.bucket
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Store file metadata after successful S3 upload
+router.post('/store-metadata',
+  authenticateToken,
+  [
+    body('s3Key').trim().isLength({ min: 1 }).withMessage('S3 key is required'),
+    body('originalName').trim().isLength({ min: 1, max: 255 }).withMessage('Original name is required'),
+    body('fileSize').isInt({ min: 1 }).withMessage('File size must be a positive integer'),
+    body('mimeType').trim().isLength({ min: 1, max: 100 }).withMessage('MIME type is required'),
+    body('category').optional().isIn(['image', 'document', 'video', 'audio']).withMessage('Invalid category'),
+    body('title').optional().trim().isLength({ min: 1, max: 255 }).withMessage('Title must be between 1 and 255 characters'),
+    body('description').optional().trim().isLength({ max: 1000 }).withMessage('Description must be less than 1000 characters'),
+    body('tags').optional().isArray().withMessage('Tags must be an array'),
+    body('isPublic').optional().isBoolean().withMessage('isPublic must be a boolean')
+  ],
+  async (req, res, next) => {
+    try {
+      // Check for validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new ValidationError('Validation failed', errors.array());
+      }
+
+      const { 
+        s3Key, 
+        originalName, 
+        fileSize, 
+        mimeType, 
+        category = 'image',
+        title, 
+        description, 
+        tags, 
+        isPublic = false 
+      } = req.body;
+      const userId = req.user.id;
+
+      // Store file metadata in database
+      const result = await query(
+        `INSERT INTO file_uploads (
+          user_id, original_name, filename, file_path, file_size, 
+          mime_type, category, title, description, tags, 
+          is_public, storage_type, cloud_key, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+        RETURNING *`,
+        [
+          userId, 
+          originalName, 
+          originalName, // filename same as original for S3
+          null, // file_path is null for S3
+          fileSize,
+          mimeType, 
+          category, 
+          title, 
+          description, 
+          tags ? JSON.stringify(tags) : null, 
+          isPublic, 
+          's3',
+          s3Key
+        ]
+      );
+
+      const uploadRecord = result.rows[0];
+
+      res.status(201).json({
+        message: 'File metadata stored successfully',
+        file: {
+          id: uploadRecord.id,
+          originalName: uploadRecord.original_name,
+          s3Key: uploadRecord.cloud_key,
+          size: uploadRecord.file_size,
+          mimeType: uploadRecord.mime_type,
+          category: uploadRecord.category,
+          title: uploadRecord.title,
+          description: uploadRecord.description,
+          tags: uploadRecord.tags ? JSON.parse(uploadRecord.tags) : [],
+          isPublic: uploadRecord.is_public,
+          storageType: uploadRecord.storage_type,
+          createdAt: uploadRecord.created_at
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Get presigned download URL for a file
+router.get('/presigned-download/:id',
+  authenticateToken,
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      // Get file record (only user's own files)
+      const result = await query(
+        `SELECT * FROM file_uploads 
+         WHERE id = $1 AND user_id = $2 AND storage_type = 's3'`,
+        [id, userId]
+      );
+
+      if (result.rows.length === 0) {
+        throw new NotFoundError('File not found or access denied');
+      }
+
+      const file = result.rows[0];
+
+      // Generate presigned download URL
+      const presignedData = await generatePresignedDownloadUrl(file.cloud_key);
+
+      res.json({
+        message: 'Presigned download URL generated successfully',
+        presignedUrl: presignedData.presignedUrl,
+        expiresIn: presignedData.expiresIn,
+        file: {
+          id: file.id,
+          originalName: file.original_name,
+          size: file.file_size,
+          mimeType: file.mime_type,
+          category: file.category,
+          title: file.title,
+          description: file.description,
+          tags: file.tags ? JSON.parse(file.tags) : [],
+          isPublic: file.is_public,
+          storageType: file.storage_type,
+          createdAt: file.created_at
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 // Upload single file (local storage)
 router.post('/local/single', 
@@ -247,6 +420,18 @@ router.get('/file/:id', async (req, res, next) => {
 
     const file = result.rows[0];
 
+    // Generate presigned URL for S3 files if user owns the file
+    let downloadUrl = null;
+    if (file.storage_type === 's3' && userId === file.user_id) {
+      try {
+        const presignedData = await generatePresignedDownloadUrl(file.cloud_key);
+        downloadUrl = presignedData.presignedUrl;
+      } catch (error) {
+        console.error('Failed to generate presigned URL:', error);
+        // Continue without download URL
+      }
+    }
+
     res.json({
       file: {
         id: file.id,
@@ -261,6 +446,8 @@ router.get('/file/:id', async (req, res, next) => {
         isPublic: file.is_public,
         storageType: file.storage_type,
         cloudUrl: file.cloud_url,
+        s3Key: file.cloud_key,
+        downloadUrl: downloadUrl,
         createdAt: file.created_at,
         updatedAt: file.updated_at
       }
@@ -371,8 +558,21 @@ router.get('/my-files', authenticateToken, async (req, res, next) => {
     const countResult = await query(countQuery, countParams);
     const totalFiles = parseInt(countResult.rows[0].count);
 
-    res.json({
-      files: result.rows.map(file => ({
+    // Process files and generate presigned URLs for S3 files
+    const processedFiles = await Promise.all(result.rows.map(async (file) => {
+      let downloadUrl = null;
+      
+      if (file.storage_type === 's3') {
+        try {
+          const presignedData = await generatePresignedDownloadUrl(file.cloud_key);
+          downloadUrl = presignedData.presignedUrl;
+        } catch (error) {
+          console.error('Failed to generate presigned URL for file:', file.id, error);
+          // Continue without download URL
+        }
+      }
+
+      return {
         id: file.id,
         originalName: file.original_name,
         filename: file.filename,
@@ -385,12 +585,18 @@ router.get('/my-files', authenticateToken, async (req, res, next) => {
         isPublic: file.is_public,
         storageType: file.storage_type,
         cloudUrl: file.cloud_url,
+        s3Key: file.cloud_key,
+        downloadUrl: downloadUrl,
         createdAt: file.created_at,
         updatedAt: file.updated_at,
         url: file.storage_type === 'local' 
           ? `${config.apiPrefix}/uploads/serve/${file.id}`
-          : file.cloud_url
-      })),
+          : downloadUrl || file.cloud_url
+      };
+    }));
+
+    res.json({
+      files: processedFiles,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -484,8 +690,18 @@ router.delete('/file/:id', authenticateToken, async (req, res, next) => {
 
     const file = result.rows[0];
 
-    // Delete from cloud storage if applicable
-    if (file.storage_type !== 'local' && file.cloud_url) {
+    // Delete from S3 if applicable
+    if (file.storage_type === 's3' && file.cloud_key) {
+      try {
+        await deleteFromCloud(file.cloud_key);
+      } catch (error) {
+        console.error('Failed to delete from S3:', error);
+        // Continue with database deletion even if S3 deletion fails
+      }
+    }
+
+    // Delete from other cloud storage if applicable
+    if (file.storage_type !== 'local' && file.storage_type !== 's3' && file.cloud_url) {
       await deleteFromCloud(file.cloud_url);
     }
 

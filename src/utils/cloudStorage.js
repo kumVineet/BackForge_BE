@@ -1,6 +1,7 @@
 const AWS = require('aws-sdk');
 const cloudinary = require('cloudinary').v2;
 const { Readable } = require('stream');
+const { v4: uuidv4 } = require('uuid');
 const { config } = require('../config/app');
 const { ValidationError, DatabaseError } = require('./errors');
 
@@ -33,7 +34,71 @@ const configureCloudinary = () => {
   return cloudinary;
 };
 
-// AWS S3 Upload
+// Generate presigned upload URL for S3
+const generatePresignedUploadUrl = async (userId, fileName, fileType, expiresIn = 3600) => {
+  try {
+    const s3 = configureS3();
+    
+    // Generate unique S3 key with user-specific path
+    const fileExtension = fileName.split('.').pop();
+    const uniqueId = uuidv4();
+    const s3Key = `users/${userId}/${uniqueId}.${fileExtension}`;
+    
+    // Set content type based on file extension
+    const contentType = fileType || 'application/octet-stream';
+    
+    const uploadParams = {
+      Bucket: config.aws.bucketName,
+      Key: s3Key,
+      ContentType: contentType,
+      Expires: expiresIn,
+      Metadata: {
+        userId: userId.toString(),
+        originalName: fileName,
+        uploadedAt: new Date().toISOString()
+      }
+    };
+
+    const presignedUrl = await s3.getSignedUrlPromise('putObject', uploadParams);
+    
+    return {
+      presignedUrl,
+      s3Key,
+      expiresIn,
+      bucket: config.aws.bucketName
+    };
+  } catch (error) {
+    console.error('Presigned URL generation error:', error);
+    throw new DatabaseError(`Failed to generate presigned upload URL: ${error.message}`);
+  }
+};
+
+// Generate presigned download URL for S3
+const generatePresignedDownloadUrl = async (s3Key, expiresIn = 3600) => {
+  try {
+    const s3 = configureS3();
+    
+    const downloadParams = {
+      Bucket: config.aws.bucketName,
+      Key: s3Key,
+      Expires: expiresIn
+    };
+
+    const presignedUrl = await s3.getSignedUrlPromise('getObject', downloadParams);
+    
+    return {
+      presignedUrl,
+      s3Key,
+      expiresIn,
+      bucket: config.aws.bucketName
+    };
+  } catch (error) {
+    console.error('Presigned download URL generation error:', error);
+    throw new DatabaseError(`Failed to generate presigned download URL: ${error.message}`);
+  }
+};
+
+// AWS S3 Upload (updated for private bucket)
 const uploadToS3 = async (file, folder = 'uploads', options = {}) => {
   try {
     const s3 = configureS3();
@@ -45,7 +110,7 @@ const uploadToS3 = async (file, folder = 'uploads', options = {}) => {
       size
     } = file;
 
-    // Generate unique filename
+    // Generate unique filename with user-specific path
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 15);
     const extension = originalname.split('.').pop();
@@ -56,7 +121,7 @@ const uploadToS3 = async (file, folder = 'uploads', options = {}) => {
       Key: filename,
       Body: buffer,
       ContentType: mimetype,
-      ACL: 'public-read',
+      // Remove ACL for private bucket
       Metadata: {
         originalName: originalname,
         fileSize: size.toString(),
@@ -252,5 +317,7 @@ module.exports = {
   deleteFromCloud,
   getFileInfo,
   configureS3,
-  configureCloudinary
+  configureCloudinary,
+  generatePresignedUploadUrl,
+  generatePresignedDownloadUrl
 }; 

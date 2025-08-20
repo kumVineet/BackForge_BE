@@ -56,6 +56,13 @@ const formatErrorResponse = (error, isDevelopment = false) => {
     }
   };
 
+  // Add special handling for token expiry
+  if (error.code === 'TOKEN_EXPIRED') {
+    response.error.code = 'TOKEN_EXPIRED';
+    response.error.action = 'REFRESH_TOKEN';
+    response.error.hint = 'Use the refresh token endpoint to get a new access token';
+  }
+
   if (isDevelopment && error.stack) {
     response.error.stack = error.stack;
   }

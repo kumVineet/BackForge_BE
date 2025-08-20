@@ -22,7 +22,7 @@ const authenticateToken = async (req, res, next) => {
     
     // Check if user exists and is active
     const result = await query(
-      'SELECT id, email, name, role, is_active FROM users WHERE id = $1',
+      'SELECT id, email, mobile_number, name, role, is_active FROM users WHERE id = $1',
       [decoded.userId]
     );
 
@@ -40,6 +40,7 @@ const authenticateToken = async (req, res, next) => {
     req.user = {
       id: user.id,
       email: user.email,
+      mobile_number: user.mobile_number,
       name: user.name,
       role: user.role
     };
@@ -47,9 +48,13 @@ const authenticateToken = async (req, res, next) => {
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
-      next(new AuthenticationError('Invalid token'));
+      next(new AuthenticationError('Invalid token. Please login again.'));
     } else if (error.name === 'TokenExpiredError') {
-      next(new AuthenticationError('Token expired'));
+      // Enhanced token expiry error with helpful message
+      const expiredError = new AuthenticationError('Access token has expired. Please refresh your token or login again.');
+      expiredError.code = 'TOKEN_EXPIRED';
+      expiredError.action = 'REFRESH_TOKEN';
+      next(expiredError);
     } else {
       next(error);
     }
@@ -87,7 +92,7 @@ const verifyRefreshToken = async (req, res, next) => {
 
     // Check if refresh token exists and is not revoked
     const result = await query(
-      `SELECT rt.*, u.id as user_id, u.email, u.name, u.role, u.is_active 
+      `SELECT rt.*, u.id as user_id, u.email, u.mobile_number, u.name, u.role, u.is_active 
        FROM refresh_tokens rt 
        JOIN users u ON rt.user_id = u.id 
        WHERE rt.token = $1 AND rt.is_revoked = false AND rt.expires_at > NOW()`,
@@ -109,6 +114,7 @@ const verifyRefreshToken = async (req, res, next) => {
     req.user = {
       id: tokenData.user_id,
       email: tokenData.email,
+      mobile_number: tokenData.mobile_number,
       name: tokenData.name,
       role: tokenData.role
     };

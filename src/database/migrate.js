@@ -16,6 +16,7 @@ const createTables = async () => {
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
+        mobile_number VARCHAR(20) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         name VARCHAR(255) NOT NULL,
         role VARCHAR(50) DEFAULT 'user' CHECK (role IN ('admin', 'user')),
@@ -31,6 +32,11 @@ const createTables = async () => {
     // Create index on email for faster lookups
     await query(`
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)
+    `);
+
+    // Create index on mobile number for faster lookups
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_users_mobile_number ON users(mobile_number)
     `);
 
     // Create index on role for role-based queries
@@ -176,7 +182,7 @@ const createTables = async () => {
 
     console.log('✅ Database migration completed successfully!');
     console.log('📋 Created/Updated tables:');
-    console.log('   - users (id, email, password, name, role, refresh_token, is_active, last_login, created_at, updated_at)');
+    console.log('   - users (id, email, mobile_number, password, name, role, refresh_token, is_active, last_login, created_at, updated_at)');
     console.log('   - refresh_tokens (id, user_id, token, expires_at, is_revoked, created_at, created_ip, user_agent)');
     console.log('   - notes (id, user_id, video_id, video_title, video_url, notes_content, file_path, file_size, status, processing_time, created_at, updated_at)');
     console.log('   - file_uploads (id, user_id, original_name, filename, file_path, file_size, mime_type, category, title, description, tags, is_public, storage_type, cloud_url, cloud_key, created_at, updated_at)');

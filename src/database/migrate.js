@@ -87,46 +87,6 @@ const createTables = async () => {
       CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token)
     `);
 
-    // Create notes table
-    await query(`
-      CREATE TABLE IF NOT EXISTS notes (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        video_id VARCHAR(20) NOT NULL,
-        video_title VARCHAR(500) NOT NULL,
-        video_url TEXT NOT NULL,
-        notes_content TEXT NOT NULL,
-        file_path VARCHAR(500),
-        file_size INTEGER,
-        status VARCHAR(50) DEFAULT 'processing' CHECK (status IN ('processing', 'completed', 'failed')),
-        processing_time INTEGER,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      )
-    `);
-
-    // Create indexes for notes table
-    await query(`
-      CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id)
-    `);
-
-    await query(`
-      CREATE INDEX IF NOT EXISTS idx_notes_video_id ON notes(video_id)
-    `);
-
-    await query(`
-      CREATE INDEX IF NOT EXISTS idx_notes_status ON notes(status)
-    `);
-
-    // Create trigger for notes table
-    await query(`
-      DROP TRIGGER IF EXISTS update_notes_updated_at ON notes;
-      CREATE TRIGGER update_notes_updated_at
-        BEFORE UPDATE ON notes
-        FOR EACH ROW
-        EXECUTE FUNCTION update_updated_at_column()
-    `);
-
     // Create file_uploads table
     await query(`
       CREATE TABLE IF NOT EXISTS file_uploads (

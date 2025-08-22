@@ -1,103 +1,235 @@
-# BackForge Backend API
+# BackForge Backend API 🚀
 
-A comprehensive Node.js backend API with JWT authentication, file upload capabilities, and cloud storage integration.
+A robust, enterprise-grade Node.js backend API built with modern architecture principles, featuring JWT authentication, secure file management, cloud storage integration, and comprehensive database management.
 
-## 🎯 Current Status: ALL FEATURES COMPLETED ✅
+## 🎯 Project Overview
 
-Your BackForge backend is now **fully implemented** with all weekly requirements completed:
+**BackForge** is a full-featured backend API designed for modern web applications. It provides a solid foundation for building scalable applications with enterprise-grade security, file management, and user authentication.
 
-### ✅ Week 1: JWT Authentication System (COMPLETED)
-- **JWT Token Management**: Access and refresh token system
-- **Secure Routes**: Protected routes with authentication middleware
-- **Role-Based Authorization**: User and admin roles with permission control
-- **Session Management**: View and manage active sessions
-- **Token Refresh**: Automatic token refresh mechanism
-- **Security**: Password hashing, rate limiting, and CORS protection
+### ✨ Key Features
 
-### ✅ Week 2: File Upload API (COMPLETED)
-- **Local File Upload**: Single and multiple file uploads to local storage
-- **File Validation**: Type, size, and format validation
-- **Metadata Storage**: File information stored in PostgreSQL database
-- **File Serving**: Secure file serving with access control
-- **Upload Statistics**: User upload analytics and statistics
+- **🔐 JWT Authentication System** - Secure token-based authentication with refresh tokens
+- **📁 Advanced File Management** - Local and cloud storage with presigned URLs
+- **🗄️ PostgreSQL Database** - Robust data persistence with migrations
+- **☁️ Cloud Storage Integration** - AWS S3 and Cloudinary support
+- **🛡️ Security First** - Rate limiting, CORS, input validation, and role-based access
+- **🏗️ OOP Architecture** - Clean, maintainable code with dependency injection
+- **📊 File Analytics** - Upload statistics and user management
+- **🔄 Environment Management** - Separate development and production configurations
 
-### ✅ Week 3: Cloud Storage Integration (COMPLETED)
-- **AWS S3 Integration**: Upload files directly to Amazon S3
-- **Cloudinary Integration**: Alternative cloud storage with image optimization
-- **Hybrid Storage**: Support for both local and cloud storage
-- **Automatic Cleanup**: File deletion from cloud storage
-- **Public URLs**: Direct access to cloud-stored files
+### 🏗️ Architecture
 
-## 🗄️ Local Database Setup
+```
+BackForge Backend
+├── 📁 Core Layer
+│   ├── BaseService & BaseRepository
+│   ├── Interface definitions
+│   └── Dependency injection container
+├── 🔐 Authentication Layer
+│   ├── JWT token management
+│   ├── Role-based authorization
+│   └── Session management
+├── 📁 File Management Layer
+│   ├── Local storage
+│   ├── Cloud storage (S3/Cloudinary)
+│   └── Presigned URL generation
+├── 🗄️ Data Layer
+│   ├── PostgreSQL database
+│   ├── Repository pattern
+│   └── Migration system
+└── 🚀 API Layer
+    ├── RESTful endpoints
+    ├── Middleware stack
+    └── Error handling
+```
 
-You now have **two separate databases** on your local machine:
+## 🚀 Quick Start for New Users (Mac)
 
-### Development Database
-- **Name**: `backforge_dev`
-- **Port**: 3000
-- **Environment**: Development
-- **Logging**: Debug level
+### Prerequisites
 
-### Production Database
-- **Name**: `backforge_prod`
-- **Port**: 8080
-- **Environment**: Production
-- **Logging**: Error level only
+Before you begin, ensure you have the following installed on your Mac:
 
-## 📋 Prerequisites
+- **Node.js** (v18.0.0 or higher)
+- **PostgreSQL** (v12.0 or higher)
+- **Git** (for cloning the repository)
+- **Homebrew** (for easy installation)
 
-- Node.js >= 18.0.0
-- PostgreSQL >= 12.0
-- npm or yarn
+### Step 1: Install Required Software
 
-## 🛠️ Installation & Setup
+#### Install Node.js
+```bash
+# Using Homebrew (recommended)
+brew install node
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd BackForge_BE
-   ```
+# Verify installation
+node --version
+npm --version
+```
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+#### Install PostgreSQL
+```bash
+# Using Homebrew
+brew install postgresql
 
-3. **Set up local databases**
-   ```bash
-   # Create development database
-   createdb backforge_dev
-   
-   # Create production database
-   createdb backforge_prod
-   ```
+# Start PostgreSQL service
+brew services start postgresql
 
-4. **Run database migrations**
-   ```bash
-   # Migrate development database
-   npm run db:migrate:dev
-   
-   # Migrate production database
-   npm run db:migrate:prod
-   ```
+# Verify installation
+psql --version
+```
 
-5. **Start the server**
-   ```bash
-   # Development mode
-   npm run dev
-   
-   # Production mode
-   npm start
-   ```
+#### Install Git (if not already installed)
+```bash
+# Using Homebrew
+brew install git
 
-## 🚀 Quick Start Commands
+# Verify installation
+git --version
+```
 
-### Environment Management
+### Step 2: Clone and Setup Project
+
+```bash
+# Clone the repository
+git clone <your-repository-url>
+cd BackForge_BE
+
+# Install project dependencies
+npm install
+
+# Verify setup
+npm run env:dev
+```
+
+### Step 3: Database Setup
+
+```bash
+# Create development database
+createdb backforge_dev
+
+# Create production database
+createdb backforge_prod
+
+# Run database migrations
+npm run db:migrate:dev
+npm run db:migrate:prod
+
+# Verify databases
+psql -l | grep backforge
+```
+
+### Step 4: Environment Configuration
+
+#### Create Environment Files
+
+**`.env.development`** (for development):
+```env
+NODE_ENV=development
+PORT=4041
+API_PREFIX=/api/v1
+CORS_ORIGIN=http://localhost:3000
+
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=backforge_dev
+DB_USER=your_mac_username
+DB_PASSWORD=
+DB_SSL=false
+
+# JWT Configuration
+JWT_SECRET=your-super-secret-dev-jwt-key-here
+JWT_EXPIRES_IN=15m
+REFRESH_TOKEN_EXPIRES_IN=7d
+JWT_REFRESH_THRESHOLD=5
+
+# File Storage
+STORAGE_TYPE=local
+UPLOAD_DIR=uploads
+
+# AWS S3 (Optional - for cloud storage)
+DEV_AWS_ACCESS_KEY_ID=your_aws_access_key
+DEV_AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+DEV_AWS_REGION=eu-north-1
+DEV_S3_BUCKET=your_bucket_name
+
+# Logging
+LOG_LEVEL=debug
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+```
+
+**`.env.production`** (for production):
+```env
+NODE_ENV=production
+PORT=4040
+API_PREFIX=/api/v1
+CORS_ORIGIN=http://localhost:3000
+
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=backforge_prod
+DB_USER=your_mac_username
+DB_PASSWORD=
+DB_SSL=false
+
+# JWT Configuration
+JWT_SECRET=your-super-secret-prod-jwt-key-here
+JWT_EXPIRES_IN=15m
+REFRESH_TOKEN_EXPIRES_IN=7d
+JWT_REFRESH_THRESHOLD=5
+
+# File Storage
+STORAGE_TYPE=local
+UPLOAD_DIR=uploads
+
+# AWS S3 (Optional - for cloud storage)
+PRODUCTION_AWS_ACCESS_KEY_ID=your_aws_access_key
+PRODUCTION_AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+PRODUCTION_AWS_REGION=eu-north-1
+PRODUCTION_S3_BUCKET=your_bucket_name
+
+# Logging
+LOG_LEVEL=error
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+```
+
+### Step 5: Start the Application
+
 ```bash
 # Switch to development environment
 npm run env:dev
 
-# Switch to production environment
+# Start development server
+npm run dev
+
+# Your API will be available at:
+# http://localhost:4041
+```
+
+### Step 6: Test Your Setup
+
+```bash
+# Test health endpoint
+curl http://localhost:4041/health
+
+# Test API base endpoint
+curl http://localhost:4041/api/v1
+
+# Check server logs for any errors
+```
+
+## 🔧 Environment Management
+
+### Switching Between Environments
+
+```bash
+# Development
+npm run env:dev
+
+# Production
 npm run env:prod
 
 # Or use the script directly
@@ -105,336 +237,54 @@ npm run env:prod
 ./scripts/switch-env.sh production
 ```
 
+### Environment Variables Explained
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NODE_ENV` | Application environment | `development` or `production` |
+| `PORT` | Server port | `4041` (dev) or `4040` (prod) |
+| `DB_HOST` | Database host | `localhost` |
+| `DB_NAME` | Database name | `backforge_dev` or `backforge_prod` |
+| `JWT_SECRET` | JWT signing secret | `your-secret-key` |
+| `STORAGE_TYPE` | File storage type | `local`, `s3`, or `cloudinary` |
+
+## 🗄️ Database Management
+
 ### Database Operations
+
 ```bash
-# Run migrations for current environment
-npm run db:migrate
-
-# Run migrations for specific environment
-npm run db:migrate:dev
-npm run db:migrate:prod
-
-# Seed database (if you have seed data)
-npm run db:seed:dev
-npm run db:seed:prod
-```
-
-### Server Management
-```bash
-# Development mode (with auto-reload)
-npm run dev
-
-# Production mode
-npm start
-
-# Start specific environment
-npm run dev:start
-npm run prod:start
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-#### Required Configuration
-```env
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=backforge_dev
-DB_USER=your_username
-DB_PASSWORD=your_password
-
-# JWT
-JWT_SECRET=your-super-secret-jwt-key
-JWT_EXPIRES_IN=15m
-REFRESH_TOKEN_EXPIRES_IN=30d
-
-# API
-API_PREFIX=/api/v1
-CORS_ORIGIN=http://localhost:3000
-```
-
-#### Optional Cloud Storage Configuration
-
-**AWS S3:**
-```env
-STORAGE_TYPE=s3
-AWS_ACCESS_KEY_ID=your-aws-access-key
-AWS_SECRET_ACCESS_KEY=your-aws-secret-key
-AWS_REGION=us-east-1
-AWS_S3_BUCKET=your-bucket-name
-```
-
-**Cloudinary:**
-```env
-STORAGE_TYPE=cloudinary
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
-```
-
-### Environment Files
-
-#### `.env.development`
-```env
-NODE_ENV=development
-PORT=3000
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=backforge_dev
-DB_USER=apple
-DB_PASSWORD=
-DB_SSL=false
-STORAGE_TYPE=local
-```
-
-#### `.env.production`
-```env
-NODE_ENV=production
-PORT=8080
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=backforge_prod
-DB_USER=apple
-DB_PASSWORD=
-DB_SSL=false
-STORAGE_TYPE=local
-```
-
-## 🔧 Database Management
-
-### Check Database Status
-```bash
-# List all databases
-psql -l
-
 # Connect to development database
 psql -d backforge_dev
 
 # Connect to production database
 psql -d backforge_prod
 
+# List all databases
+psql -l
+
 # View tables in current database
 \dt
 
 # View table structure
 \d table_name
+
+# View table data
+SELECT * FROM users LIMIT 5;
 ```
 
-### Reset Databases (if needed)
-```bash
-# Drop and recreate development database
-dropdb backforge_dev
-createdb backforge_dev
-npm run db:migrate:dev
+### Database Schema
 
-# Drop and recreate production database
-dropdb backforge_prod
-createdb backforge_prod
-npm run db:migrate:prod
-```
-
-## 📚 API Documentation
-
-### Authentication Endpoints
-
-#### Register User
-```http
-POST /api/v1/auth/register
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "password123",
-  "name": "John Doe",
-  "role": "user"
-}
-```
-
-#### Login
-```http
-POST /api/v1/auth/login
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-```
-
-#### Refresh Token
-```http
-POST /api/v1/auth/refresh
-Content-Type: application/json
-
-{
-  "refreshToken": "your-refresh-token"
-}
-```
-
-#### Logout
-```http
-POST /api/v1/auth/logout
-Authorization: Bearer your-access-token
-Content-Type: application/json
-
-{
-  "refreshToken": "your-refresh-token"
-}
-```
-
-### File Upload Endpoints
-
-#### Upload Single File (Local)
-```http
-POST /api/v1/uploads/local/single
-Authorization: Bearer your-access-token
-Content-Type: multipart/form-data
-
-file: [file]
-title: "My Image"
-description: "A beautiful image"
-category: "image"
-tags: ["nature", "landscape"]
-isPublic: false
-```
-
-#### Upload Multiple Files (Local)
-```http
-POST /api/v1/uploads/local/multiple
-Authorization: Bearer your-access-token
-Content-Type: multipart/form-data
-
-files: [file1, file2, file3]
-title: "My Images"
-description: "Multiple beautiful images"
-category: "image"
-tags: ["nature", "landscape"]
-isPublic: false
-```
-
-#### Upload to Cloud Storage
-```http
-POST /api/v1/uploads/cloud/single
-Authorization: Bearer your-access-token
-Content-Type: multipart/form-data
-
-file: [file]
-title: "Cloud Image"
-description: "Image stored in cloud"
-category: "image"
-folder: "uploads"
-isPublic: true
-```
-
-#### Get User's Files
-```http
-GET /api/v1/uploads/my-files?page=1&limit=20&category=image&search=landscape
-Authorization: Bearer your-access-token
-```
-
-#### Get File by ID
-```http
-GET /api/v1/uploads/file/123
-Authorization: Bearer your-access-token
-```
-
-#### Serve Local File
-```http
-GET /api/v1/uploads/serve/123
-Authorization: Bearer your-access-token
-```
-
-#### Update File Metadata
-```http
-PUT /api/v1/uploads/file/123
-Authorization: Bearer your-access-token
-Content-Type: application/json
-
-{
-  "title": "Updated Title",
-  "description": "Updated description",
-  "tags": ["updated", "tags"],
-  "isPublic": true
-}
-```
-
-#### Delete File
-```http
-DELETE /api/v1/uploads/file/123
-Authorization: Bearer your-access-token
-```
-
-#### Get Upload Statistics
-```http
-GET /api/v1/uploads/stats
-Authorization: Bearer your-access-token
-```
-
-## 🧪 Testing Your Setup
-
-### 1. Test Development Environment
-```bash
-# Switch to development
-npm run env:dev
-
-# Start development server
-npm run dev
-
-# Test endpoints
-curl http://localhost:3000/health
-curl http://localhost:3000/api/v1
-```
-
-### 2. Test Production Environment
-```bash
-# Switch to production
-npm run env:prod
-
-# Start production server
-npm run prod:start
-
-# Test endpoints
-curl http://localhost:8080/health
-curl http://localhost:8080/api/v1
-```
-
-## 📊 API Endpoints Available
-
-### Authentication
-- `POST /api/v1/auth/register` - Register user
-- `POST /api/v1/auth/login` - Login user
-- `POST /api/v1/auth/refresh` - Refresh token
-- `POST /api/v1/auth/logout` - Logout
-- `GET /api/v1/auth/verify` - Verify token
-
-### File Uploads
-- `POST /api/v1/uploads/local/single` - Upload single file (local)
-- `POST /api/v1/uploads/local/multiple` - Upload multiple files (local)
-- `POST /api/v1/uploads/cloud/single` - Upload to cloud storage
-- `GET /api/v1/uploads/my-files` - Get user's files
-- `GET /api/v1/uploads/file/:id` - Get file by ID
-- `GET /api/v1/uploads/serve/:id` - Serve local file
-- `PUT /api/v1/uploads/file/:id` - Update file metadata
-- `DELETE /api/v1/uploads/file/:id` - Delete file
-- `GET /api/v1/uploads/stats` - Get upload statistics
-
-### Users
-- `GET /api/v1/users/profile` - Get user profile
-- `PUT /api/v1/users/profile` - Update profile
-- `GET /api/v1/users` - Get all users (admin)
-
-## 🗄️ Database Schema
-
-### Users Table
+#### Users Table
 ```sql
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
+  mobile_number VARCHAR(20) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
   name VARCHAR(255) NOT NULL,
   role VARCHAR(50) DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+  refresh_token TEXT,
+  refresh_token_expires_at TIMESTAMP WITH TIME ZONE,
   is_active BOOLEAN DEFAULT true,
   last_login TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -442,21 +292,7 @@ CREATE TABLE users (
 );
 ```
 
-### Refresh Tokens Table
-```sql
-CREATE TABLE refresh_tokens (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-  token TEXT UNIQUE NOT NULL,
-  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  is_revoked BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_ip VARCHAR(45),
-  user_agent TEXT
-);
-```
-
-### File Uploads Table
+#### File Uploads Table
 ```sql
 CREATE TABLE file_uploads (
   id SERIAL PRIMARY KEY,
@@ -472,94 +308,164 @@ CREATE TABLE file_uploads (
   tags JSONB,
   is_public BOOLEAN DEFAULT false,
   storage_type VARCHAR(20) DEFAULT 'local' CHECK (storage_type IN ('local', 's3', 'cloudinary')),
-  cloud_url TEXT,
   cloud_key VARCHAR(500),
+  file_hash VARCHAR(64),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-## 🔒 Security Features
+### Database Commands
 
-- **JWT Authentication**: Secure token-based authentication
-- **Password Hashing**: bcryptjs for password security
-- **Rate Limiting**: Express rate limiting middleware
-- **CORS Protection**: Configurable CORS settings
-- **Input Validation**: Express-validator for request validation
-- **File Type Validation**: Strict file type and size limits
-- **Access Control**: Role-based authorization
-- **Session Management**: Secure session handling
+```bash
+# Run migrations
+npm run db:migrate:dev    # Development database
+npm run db:migrate:prod   # Production database
 
-## 📁 File Storage Options
+# Reset databases (if needed)
+dropdb backforge_dev && createdb backforge_dev
+npm run db:migrate:dev
 
-### Local Storage
+dropdb backforge_prod && createdb backforge_prod
+npm run db:migrate:prod
+```
+
+## 📁 File Management System
+
+### Storage Types
+
+#### Local Storage
 - Files stored in local filesystem
-- Organized by category (image, document, video, audio)
+- Organized by category and user
 - Automatic directory creation
-- File serving with access control
+- Secure file serving
 
-### AWS S3
+#### Cloud Storage (AWS S3)
 - Direct upload to Amazon S3
-- Public URL generation
+- Presigned URLs for secure access
 - Automatic file deletion
 - Metadata storage
 
-### Cloudinary
+#### Cloud Storage (Cloudinary)
 - Image optimization and transformation
 - Multiple format support
 - CDN delivery
 - Automatic file management
 
-## 🔄 Switching Between Environments
+### File Upload Flow
 
-### Quick Switch
-```bash
-# Development
-npm run env:dev && npm run dev
-
-# Production
-npm run env:prod && npm run prod:start
+```
+1. User uploads file → 2. File validation → 3. Storage (local/cloud) → 4. Metadata storage → 5. Return file info
 ```
 
-### Manual Switch
-```bash
-# Set environment variable
-export NODE_ENV=development  # or production
+### Presigned URLs
 
-# Start server
-npm run dev  # or npm start
+The system generates secure, temporary URLs for file access:
+- **Security**: URLs expire after 1 hour
+- **Access Control**: Only authenticated users can generate URLs
+- **Preview & Download**: Same URL works for both purposes
+
+## 🔐 Authentication System
+
+### JWT Token Flow
+
+```
+Login → Access Token (15min) + Refresh Token (7 days) → Use Access Token → Refresh when needed
 ```
 
-## 🚀 Deployment
+### User Roles
 
-### Development
+- **User**: Can upload, manage own files, view public files
+- **Admin**: Full access to all files and user management
+
+### Security Features
+
+- Password hashing with bcrypt
+- Rate limiting (100 requests per 15 minutes)
+- CORS protection
+- Input validation
+- Role-based access control
+
+## 🚀 API Endpoints
+
+### Authentication
+```http
+POST /api/v1/auth/register    # Register new user
+POST /api/v1/auth/login       # User login
+POST /api/v1/auth/refresh     # Refresh access token
+POST /api/v1/auth/logout      # User logout
+GET  /api/v1/auth/verify      # Verify token validity
+```
+
+### File Management
+```http
+GET  /api/v1/uploads/my-files           # Get user's files with presigned URLs
+GET  /api/v1/uploads/files/:id          # Get specific file with presigned URL
+GET  /api/v1/uploads/search             # Search files with presigned URLs
+POST /api/v1/uploads/store-metadata     # Store file metadata after S3 upload
+```
+
+### User Management
+```http
+GET  /api/v1/users/profile              # Get user profile
+PUT  /api/v1/users/profile              # Update user profile
+GET  /api/v1/users                      # Get all users (admin only)
+```
+
+## 🛠️ Development Workflow
+
+### Starting Development
+
 ```bash
+# 1. Switch to development environment
+npm run env:dev
+
+# 2. Start development server
 npm run dev
+
+# 3. Server runs on http://localhost:4041
+# 4. Auto-reload on file changes
 ```
 
-### Production
-```bash
-npm start
+### Code Structure
+
+```
+src/
+├── config/           # Configuration files
+├── core/            # Base classes and interfaces
+├── database/        # Database migrations and seeds
+├── middleware/      # Express middleware
+├── repositories/    # Data access layer
+├── routes/          # API route definitions
+├── services/        # Business logic layer
+├── utils/           # Utility functions
+└── server.js        # Main application entry point
 ```
 
-### Docker (Optional)
-```bash
-# Build image
-docker build -t backforge-be .
+### Adding New Features
 
-# Run container
-docker run -p 3000:3000 backforge-be
-```
-
-## 📊 Monitoring & Logging
-
-- **Morgan**: HTTP request logging
-- **Error Handling**: Comprehensive error management
-- **Health Check**: `/health` endpoint for monitoring
-- **Database Connection**: Connection pool management
-- **File Upload Tracking**: Upload statistics and analytics
+1. **Create Service**: Extend `BaseService` class
+2. **Create Repository**: Extend `BaseRepository` class
+3. **Register in Container**: Add to dependency injection
+4. **Create Routes**: Define API endpoints
+5. **Add Validation**: Input validation middleware
 
 ## 🧪 Testing
+
+### Manual Testing
+
+```bash
+# Test authentication
+curl -X POST http://localhost:4041/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123","name":"Test User"}'
+
+# Test file upload (after authentication)
+curl -X GET http://localhost:4041/api/v1/uploads/my-files \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+### Automated Testing
 
 ```bash
 # Run tests
@@ -567,53 +473,40 @@ npm test
 
 # Run tests in watch mode
 npm run test:watch
+
+# Run specific test file
+npm test -- --grep "auth"
 ```
 
-## 📝 Scripts
+## 📊 Monitoring & Logging
+
+### Log Levels
+
+- **Development**: `debug` - Detailed logging for development
+- **Production**: `error` - Only error logging for performance
+
+### Health Checks
 
 ```bash
-# Development
-npm run dev          # Start development server
-npm run dev:start    # Start development without nodemon
-npm run lint         # Run ESLint
-npm run lint:fix     # Fix ESLint issues
+# Health endpoint
+GET /health
 
-# Production
-npm start            # Start production server
-npm run prod:start   # Start production explicitly
-
-# Database
-npm run db:migrate   # Run database migrations
-npm run db:migrate:dev   # Migrate development DB
-npm run db:migrate:prod  # Migrate production DB
-npm run db:seed      # Seed database with test data
-npm run db:seed:dev  # Seed development DB
-npm run db:seed:prod # Seed production DB
-
-# Environment
-npm run env:dev      # Switch to development
-npm run env:prod     # Switch to production
+# API status
+GET /api/v1
 ```
 
-## 🚨 Important Notes
+### Performance Monitoring
 
-1. **Environment Files**: Both `.env.development` and `.env.production` are configured for local databases
-2. **Database Separation**: Development and production use separate databases
-3. **File Storage**: Currently set to local storage for development
-4. **Security**: JWT secrets are different for each environment
-5. **Ports**: Development (3000), Production (8080)
+- Database connection pooling
+- File upload progress tracking
+- Request/response logging
+- Error tracking and reporting
 
-## 📈 Next Steps
+## 🚨 Troubleshooting
 
-1. **Test File Uploads**: Try uploading files using the API endpoints
-2. **Configure Cloud Storage**: Add AWS S3 or Cloudinary credentials when ready
-3. **Add Seed Data**: Create seed data for testing
-4. **Frontend Integration**: Connect your frontend to these endpoints
-5. **Deployment**: When ready, update production environment for remote deployment
+### Common Issues
 
-## 🆘 Troubleshooting
-
-### Database Connection Issues
+#### Database Connection Failed
 ```bash
 # Check if PostgreSQL is running
 brew services list | grep postgresql
@@ -625,43 +518,108 @@ brew services start postgresql
 psql -l | grep backforge
 ```
 
-### Environment Issues
+#### Port Already in Use
 ```bash
-# Check environment variables
-NODE_ENV=development node -e "console.log(process.env.DB_NAME)"
+# Check what's using the port
+lsof -i :4041
 
-# Verify environment files exist
-ls -la .env.*
-```
-
-### Port Issues
-```bash
-# Check if ports are in use
-lsof -i :3000
-lsof -i :8080
-
-# Kill process if needed
+# Kill the process if needed
 kill -9 <PID>
 ```
+
+#### Environment Variables Not Loading
+```bash
+# Check environment files exist
+ls -la .env.*
+
+# Verify environment is set
+echo $NODE_ENV
+
+# Check specific variables
+node -e "console.log(process.env.DB_NAME)"
+```
+
+#### File Upload Issues
+```bash
+# Check upload directory permissions
+ls -la uploads/
+
+# Create upload directory if missing
+mkdir -p uploads
+
+# Check file permissions
+chmod 755 uploads/
+```
+
+### Getting Help
+
+1. **Check Logs**: Look at console output for error messages
+2. **Verify Environment**: Ensure `.env.development` exists and is correct
+3. **Database Status**: Verify PostgreSQL is running and databases exist
+4. **Dependencies**: Ensure all npm packages are installed
+5. **File Permissions**: Check directory and file permissions
+
+## 🔄 Deployment
+
+### Local Production Testing
+
+```bash
+# Switch to production environment
+npm run env:prod
+
+# Start production server
+npm start
+
+# Server runs on http://localhost:4040
+```
+
+### Production Deployment
+
+1. **Environment Setup**: Configure production environment variables
+2. **Database**: Set up production PostgreSQL instance
+3. **File Storage**: Configure S3 or Cloudinary for production
+4. **Security**: Update JWT secrets and CORS origins
+5. **Process Management**: Use PM2 or similar for process management
+
+## 📚 Additional Resources
+
+### Documentation
+- [Node.js Documentation](https://nodejs.org/docs/)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [Express.js Documentation](https://expressjs.com/)
+- [JWT.io](https://jwt.io/) - JWT token debugging
+
+### Tools
+- [Postman](https://www.postman.com/) - API testing
+- [pgAdmin](https://www.pgadmin.org/) - PostgreSQL GUI
+- [DBeaver](https://dbeaver.io/) - Universal database tool
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-For support and questions, please open an issue in the repository.
+- **Issues**: Open an issue in the repository
+- **Documentation**: Check this README and code comments
+- **Community**: Reach out to the development team
 
 ---
 
-**BackForge Backend API** - A robust, scalable backend solution with comprehensive file management capabilities.
+## 🎉 Welcome to BackForge!
 
-**Your BackForge backend is now complete and ready for development! 🎉** 
+You're now ready to build amazing applications with a robust, secure, and scalable backend API. The system is designed to grow with your needs, from simple file uploads to complex enterprise applications.
+
+**Happy coding! 🚀**
+
+---
+
+**BackForge Backend API** - Built with ❤️ for modern web development 

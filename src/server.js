@@ -6,6 +6,9 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const dotenv = require('dotenv');
+const { Server } = require("socket.io");
+const {createServer} = require("http");
+
 
 // Load configuration
 const { config, validateConfig } = require('./config/app');
@@ -21,6 +24,14 @@ dotenv.config({ path: envFile });
 validateConfig();
 
 const app = express();
+
+const server = require('http').createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: config.corsOrigin,
+    credentials: true
+  }
+});
 
 // Security middleware
 app.use(helmet());
@@ -54,6 +65,35 @@ if (config.nodeEnv === 'development') {
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+io.on('connection', (socket) => {
+  console.log(`�� User connected: ${socket.id}`);
+
+  // Handle user authentication
+  socket.on('authenticate', (data) => {
+    try {
+      // Verify JWT token
+      const decoded = jwt.verify(data.token, config.jwtSecret);
+      socket.userId = decoded.userId;
+      socket.userEmail = decoded.email;
+      
+      // Join user-specific room
+      socket.join(`user_${decoded.userId}`);
+      
+      console.log(`✅ User authenticated: ${decoded.email}`);
+      socket.emit('authenticated', { success: true });
+      
+    } catch (error) {
+      console.log(`❌ Authentication failed: ${error.message}`);
+      socket.emit('authentication_error', { message: 'Invalid token' });
+    }
+  });
+
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    console.log(`�� User disconnected: ${socket.id}`);
+  });
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -114,13 +154,11 @@ const startServer = async () => {
       process.exit(1);
     }
 
-
-
-    // Start listening
-    app.listen(config.port, () => {
+    server.listen(config.port, () => {
       console.log(`🚀 Server running in ${config.nodeEnv} mode on port ${config.port}`);
-      console.log(`📊 Health check: http://localhost:${config.port}/health`);
-      console.log(`🔗 API Base URL: http://localhost:${config.port}${config.apiPrefix}`);
+      console.log(`�� Health check: http://localhost:${config.port}/health`);
+      console.log(`�� API Base URL: http://localhost:${config.port}${config.apiPrefix}`);
+      console.log(`🔌 Socket.io server: Active`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
@@ -141,3 +179,5 @@ process.on('SIGINT', () => {
 
 // Start the server
 startServer(); 
+
+module.exports = { app, server, io };

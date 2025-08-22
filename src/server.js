@@ -7,13 +7,10 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const dotenv = require('dotenv');
 const { Server } = require("socket.io");
-const {createServer} = require("http");
-
 
 // Load configuration
 const { config, validateConfig } = require('./config/app');
 const { testConnection } = require('./config/database');
-
 
 // Load environment-specific configuration
 const env = process.env.NODE_ENV || 'development';
@@ -32,6 +29,14 @@ const io = new Server(server, {
     credentials: true
   }
 });
+
+// Initialize Socket Service
+const SocketService = require('./services/SocketService');
+const socketService = new SocketService(io);
+
+// Initialize Socket Utilities
+const socketUtils = require('./utils/socketUtils');
+socketUtils.initializeSocketService(socketService);
 
 // Security middleware
 app.use(helmet());
@@ -66,42 +71,22 @@ if (config.nodeEnv === 'development') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-io.on('connection', (socket) => {
-  console.log(`�� User connected: ${socket.id}`);
-
-  // Handle user authentication
-  socket.on('authenticate', (data) => {
-    try {
-      // Verify JWT token
-      const decoded = jwt.verify(data.token, config.jwtSecret);
-      socket.userId = decoded.userId;
-      socket.userEmail = decoded.email;
-      
-      // Join user-specific room
-      socket.join(`user_${decoded.userId}`);
-      
-      console.log(`✅ User authenticated: ${decoded.email}`);
-      socket.emit('authenticated', { success: true });
-      
-    } catch (error) {
-      console.log(`❌ Authentication failed: ${error.message}`);
-      socket.emit('authentication_error', { message: 'Invalid token' });
-    }
-  });
-
-  // Handle disconnect
-  socket.on('disconnect', () => {
-    console.log(`�� User disconnected: ${socket.id}`);
-  });
-});
-
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
     environment: config.nodeEnv,
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    socketStats: socketService.getConnectionStats()
+  });
+});
+
+// Socket connection status endpoint
+app.get('/socket/status', (req, res) => {
+  res.status(200).json({
+    status: 'Socket.io Active',
+    stats: socketService.getConnectionStats()
   });
 });
 
@@ -156,8 +141,9 @@ const startServer = async () => {
 
     server.listen(config.port, () => {
       console.log(`🚀 Server running in ${config.nodeEnv} mode on port ${config.port}`);
-      console.log(`�� Health check: http://localhost:${config.port}/health`);
-      console.log(`�� API Base URL: http://localhost:${config.port}${config.apiPrefix}`);
+      console.log(`🏥 Health check: http://localhost:${config.port}/health`);
+      console.log(`🔌 Socket status: http://localhost:${config.port}/socket/status`);
+      console.log(`🌐 API Base URL: http://localhost:${config.port}${config.apiPrefix}`);
       console.log(`🔌 Socket.io server: Active`);
     });
   } catch (error) {
@@ -178,6 +164,6 @@ process.on('SIGINT', () => {
 });
 
 // Start the server
-startServer(); 
+startServer();
 
-module.exports = { app, server, io };
+module.exports = { app, server, io, socketService };

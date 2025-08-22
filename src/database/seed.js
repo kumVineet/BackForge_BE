@@ -47,12 +47,6 @@ const seedDatabase = async () => {
         name: 'John Doe',
         role: 'user'
       },
-      {
-        email: 'jane.smith@example.com',
-        password: 'password123',
-        name: 'Jane Smith',
-        role: 'user'
-      }
     ];
 
     console.log('📝 Creating sample users...');

@@ -46,13 +46,6 @@ const config = {
     bucketName: env === 'production' ? process.env.PRODUCTION_S3_BUCKET : process.env.DEV_S3_BUCKET
   },
   
-  // Cloudinary Configuration
-  cloudinary: {
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-    apiKey: process.env.CLOUDINARY_API_KEY,
-    apiSecret: process.env.CLOUDINARY_API_SECRET
-  },
-  
   // Database (for reference)
   database: {
     host: process.env.DB_HOST,

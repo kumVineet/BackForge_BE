@@ -1,329 +1,377 @@
+/**
+ * Authentication Routes
+ * Handles user authentication, registration, and token management
+ */
 const express = require('express');
-const bcrypt = require('bcryptjs');
-const { body, validationResult } = require('express-validator');
-const { query } = require('../config/database');
-const { config } = require('../config/app');
-const { 
-  ValidationError, 
-  AuthenticationError, 
-  ConflictError,
-  DatabaseError 
-} = require('../utils/errors');
-const { 
-  authenticateToken, 
-  verifyRefreshToken 
-} = require('../middleware/auth');
-const { 
-  generateTokenPair, 
-  revokeRefreshToken, 
-  revokeAllUserTokens 
-} = require('../utils/tokens');
+const { body } = require('express-validator');
+const { check } = require('express-validator');
+const container = require('../config/container');
+const { formatErrorResponse } = require('../utils/errors');
 
 const router = express.Router();
 
-// Validation middleware
-const validateRegistration = [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('mobile_number')
-    .matches(/^(\+?[1-9]\d{0,14}|0\d{9,14}|\+91\d{10})$/)
-    .withMessage('Valid mobile number is required (e.g., +1234567890, 09557978166, +919557978166, or 9557978166)'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
-  body('role').optional().isIn(['user', 'admin']).withMessage('Role must be either user or admin')
-];
+// Get services from container
+const authService = container.get('authService');
 
+// Validation middleware
 const validateLogin = [
   body('identifier')
+    .trim()
     .notEmpty()
     .withMessage('Email or mobile number is required')
-    .custom((value) => {
-      // Check if it's a valid email or mobile number
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const mobileRegex = /^(\+?[1-9]\d{0,14}|0\d{9,14}|\+91\d{10})$/;
-      
-      if (!emailRegex.test(value) && !mobileRegex.test(value)) {
-        throw new Error('Please provide a valid email or mobile number');
-      }
-      return true;
-    }),
-  body('password').notEmpty().withMessage('Password is required')
+    .isLength({ min: 3 })
+    .withMessage('Please provide a valid email or mobile number'),
+  body('password')
+    .trim()
+    .notEmpty()
+    .withMessage('Password is required')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long')
 ];
 
-// Register endpoint
-router.post('/register', validateRegistration, async (req, res, next) => {
+const validateRegister = [
+  body('name')
+    .trim()
+    .notEmpty()
+    .withMessage('Name is required')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Name must be between 2 and 100 characters'),
+  body('email')
+    .trim()
+    .notEmpty()
+    .withMessage('Email is required')
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail(),
+  body('password')
+    .trim()
+    .notEmpty()
+    .withMessage('Password is required')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long'),
+  body('mobile')
+    .optional()
+    .trim()
+    .isMobilePhone()
+    .withMessage('Please provide a valid mobile number'),
+  body('role')
+    .optional()
+    .isIn(['user', 'admin'])
+    .withMessage('Role must be either user or admin')
+];
+
+const validateRefreshToken = [
+  body('refreshToken')
+    .trim()
+    .notEmpty()
+    .withMessage('Refresh token is required')
+];
+
+const validateLogout = [
+  body('refreshToken')
+    .trim()
+    .notEmpty()
+    .withMessage('Refresh token is required')
+];
+
+const validateChangePassword = [
+  body('currentPassword')
+    .trim()
+    .notEmpty()
+    .withMessage('Current password is required'),
+  body('newPassword')
+    .trim()
+    .notEmpty()
+    .withMessage('New password is required')
+    .isLength({ min: 8 })
+    .withMessage('New password must be at least 8 characters long')
+];
+
+/**
+ * @route   POST /api/v1/auth/login
+ * @desc    Authenticate user and return tokens
+ * @access  Public
+ */
+router.post('/login', validateLogin, async (req, res) => {
   try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new ValidationError('Validation failed', errors.array());
-    }
-
-    const { email, mobile_number, password, name, role = 'user' } = req.body;
-
-    // Check if user already exists with email
-    const existingUserByEmail = await query(
-      'SELECT id FROM users WHERE email = $1',
-      [email]
-    );
-
-    if (existingUserByEmail.rows.length > 0) {
-      throw new ConflictError('User with this email already exists');
-    }
-
-    // Check if user already exists with mobile number
-    const existingUserByMobile = await query(
-      'SELECT id FROM users WHERE mobile_number = $1',
-      [mobile_number]
-    );
-
-    if (existingUserByMobile.rows.length > 0) {
-      throw new ConflictError('User with this mobile number already exists');
-    }
-
-    // Hash password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    // Create user
-    const result = await query(
-      `INSERT INTO users (email, mobile_number, password, name, role, created_at) 
-       VALUES ($1, $2, $3, $4, $5, NOW()) 
-       RETURNING id, email, mobile_number, name, role, created_at`,
-      [email, mobile_number, hashedPassword, name, role]
-    );
-
-    const user = result.rows[0];
-
-    // Generate token pair
-    const tokens = await generateTokenPair(user.id, user.email, user.role, req);
-
-    res.status(201).json({
-      message: 'User registered successfully',
-      user: {
-        id: user.id,
-        email: user.email,
-        mobile_number: user.mobile_number,
-        name: user.name,
-        role: user.role,
-        created_at: user.created_at
-      },
-      tokens: {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresIn: config.jwtExpiresIn
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Login endpoint
-router.post('/login', validateLogin, async (req, res, next) => {
-  try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new ValidationError('Validation failed', errors.array());
-    }
-
     const { identifier, password } = req.body;
-
-    // Find user by email or mobile number
-    const result = await query(
-      'SELECT id, email, mobile_number, password, name, role, is_active FROM users WHERE email = $1 OR mobile_number = $1',
-      [identifier]
-    );
-
-    if (result.rows.length === 0) {
-      throw new AuthenticationError('Invalid credentials');
-    }
-
-    const user = result.rows[0];
-
-    // Check if account is active
-    if (!user.is_active) {
-      throw new AuthenticationError('Account is deactivated');
-    }
-
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      throw new AuthenticationError('Invalid credentials');
-    }
-
-    // Update last login
-    await query(
-      'UPDATE users SET last_login = NOW() WHERE id = $1',
-      [user.id]
-    );
-
-    // Generate token pair
-    const tokens = await generateTokenPair(user.id, user.email, user.role, req);
-
+    
+    const result = await authService.authenticateUser(identifier, password);
+    
     res.json({
+      success: true,
       message: 'Login successful',
-      user: {
-        id: user.id,
-        email: user.email,
-        mobile_number: user.mobile_number,
-        name: user.name,
-        role: user.role
-      },
-      tokens: {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresIn: config.jwtExpiresIn
-      }
+      data: result
     });
   } catch (error) {
-    next(error);
+    const formattedError = formatErrorResponse(error);
+    res.status(formattedError.error.statusCode).json({
+      success: false,
+      error: formattedError
+    });
   }
 });
 
-// Refresh token endpoint with race condition protection
-router.post('/refresh', verifyRefreshToken, async (req, res, next) => {
+/**
+ * @route   POST /api/v1/auth/register
+ * @desc    Register a new user
+ * @access  Public
+ */
+router.post('/register', validateRegister, async (req, res) => {
+  try {
+    const userData = req.body;
+    
+    const result = await authService.registerUser(userData);
+    
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data: result
+    });
+  } catch (error) {
+    const formattedError = formatErrorResponse(error);
+    res.status(formattedError.error.statusCode).json({
+      success: false,
+      error: formattedError
+    });
+  }
+});
+
+/**
+ * @route   POST /api/v1/auth/refresh
+ * @desc    Refresh access token using refresh token
+ * @access  Public
+ */
+router.post('/refresh', validateRefreshToken, async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    const user = req.user;
-
-    // Check if token is still valid and not revoked (race condition protection)
-    const tokenCheck = await query(
-      'SELECT is_revoked, expires_at FROM refresh_tokens WHERE token = $1',
-      [refreshToken]
-    );
-
-    if (tokenCheck.rows.length === 0) {
-      throw new AuthenticationError('Invalid refresh token');
-    }
-
-    const tokenData = tokenCheck.rows[0];
-    if (tokenData.is_revoked) {
-      throw new AuthenticationError('Refresh token has been revoked');
-    }
-
-    if (new Date() > new Date(tokenData.expires_at)) {
-      throw new AuthenticationError('Refresh token has expired');
-    }
-
-    // Generate new token pair
-    const tokens = await generateTokenPair(user.id, user.email, user.role, req);
-
-    // Revoke the old refresh token (atomic operation)
-    const revokeResult = await query(
-      'UPDATE refresh_tokens SET is_revoked = true WHERE token = $1 AND is_revoked = false RETURNING id',
-      [refreshToken]
-    );
-
-    if (revokeResult.rows.length === 0) {
-      // Token was already revoked by another request
-      throw new AuthenticationError('Refresh token has already been used');
-    }
-
+    
+    const tokens = await authService.refreshToken(refreshToken);
+    
     res.json({
-      message: 'Tokens refreshed successfully',
-      tokens: {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresIn: config.jwtExpiresIn
-      }
+      success: true,
+      message: 'Token refreshed successfully',
+      data: tokens
     });
   } catch (error) {
-    next(error);
+    const formattedError = formatErrorResponse(error);
+    res.status(formattedError.error.statusCode).json({
+      success: false,
+      error: formattedError
+    });
   }
 });
 
-// Logout endpoint
-router.post('/logout', authenticateToken, async (req, res, next) => {
+/**
+ * @route   POST /api/v1/auth/logout
+ * @desc    Logout user and revoke tokens
+ * @access  Public
+ */
+router.post('/logout', validateLogout, async (req, res) => {
   try {
     const { refreshToken } = req.body;
+    
+    await authService.logout(refreshToken);
+    
+    res.json({
+      success: true,
+      message: 'Logout successful'
+    });
+  } catch (error) {
+    const formattedError = formatErrorResponse(error);
+    res.status(formattedError.error.statusCode).json({
+      success: false,
+      error: formattedError
+    });
+  }
+});
 
-    if (refreshToken) {
-      // Revoke the specific refresh token
-      await revokeRefreshToken(refreshToken);
+/**
+ * @route   POST /api/v1/auth/change-password
+ * @desc    Change user password
+ * @access  Private
+ */
+router.post('/change-password', validateChangePassword, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id; // From authenticateToken middleware
+    
+    await authService.changePassword(userId, currentPassword, newPassword);
+    
+    res.json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    const formattedError = formatErrorResponse(error);
+    res.status(formattedError.error.statusCode).json({
+      success: false,
+      error: formattedError
+    });
+  }
+});
+
+/**
+ * @route   POST /api/v1/auth/request-password-reset
+ * @desc    Request password reset
+ * @access  Public
+ */
+router.post('/request-password-reset', [
+  body('email')
+    .trim()
+    .notEmpty()
+    .withMessage('Email is required')
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail()
+], async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    await authService.requestPasswordReset(email);
+    
+    res.json({
+      success: true,
+      message: 'Password reset email sent (if email exists)'
+    });
+  } catch (error) {
+    const formattedError = formatErrorResponse(error);
+    res.status(formattedError.error.statusCode).json({
+      success: false,
+      error: formattedError
+    });
+  }
+});
+
+/**
+ * @route   POST /api/v1/auth/reset-password
+ * @desc    Reset password with reset token
+ * @access  Public
+ */
+router.post('/reset-password', [
+  body('resetToken')
+    .trim()
+    .notEmpty()
+    .withMessage('Reset token is required'),
+  body('newPassword')
+    .trim()
+    .notEmpty()
+    .withMessage('New password is required')
+    .isLength({ min: 8 })
+    .withMessage('New password must be at least 8 characters long')
+], async (req, res) => {
+  try {
+    const { resetToken, newPassword } = req.body;
+    
+    await authService.resetPassword(resetToken, newPassword);
+    
+    res.json({
+      success: true,
+      message: 'Password reset successfully'
+    });
+  } catch (error) {
+    const formattedError = formatErrorResponse(error);
+    res.status(formattedError.error.statusCode).json({
+      success: false,
+      error: formattedError
+    });
+  }
+});
+
+/**
+ * @route   GET /api/v1/auth/profile
+ * @desc    Get user profile
+ * @access  Private
+ */
+router.get('/profile', async (req, res) => {
+  try {
+    const userId = req.user.id; // From authenticateToken middleware
+    
+    const profile = await authService.getUserProfile(userId);
+    
+    res.json({
+      success: true,
+      data: profile
+    });
+  } catch (error) {
+    const formattedError = formatErrorResponse(error);
+    res.status(formattedError.error.statusCode).json({
+      success: false,
+      error: formattedError
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/v1/auth/profile
+ * @desc    Update user profile
+ * @access  Private
+ */
+router.put('/profile', [
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Name must be between 2 and 100 characters'),
+  body('mobile')
+    .optional()
+    .trim()
+    .isMobilePhone()
+    .withMessage('Please provide a valid mobile number')
+], async (req, res) => {
+  try {
+    const userId = req.user.id; // From authenticateToken middleware
+    const profileData = req.body;
+    
+    const updatedProfile = await authService.updateUserProfile(userId, profileData);
+    
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: updatedProfile
+    });
+  } catch (error) {
+    const formattedError = formatErrorResponse(error);
+    res.status(formattedError.error.statusCode).json({
+      success: false,
+      error: formattedError
+    });
+  }
+});
+
+/**
+ * @route   GET /api/v1/auth/validate-token
+ * @desc    Validate access token
+ * @access  Public
+ */
+router.get('/validate-token', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: 'Access token required',
+          statusCode: 401
+        }
+      });
     }
-
+    
+    const token = authHeader.substring(7);
+    const payload = await authService.validateToken(token);
+    
     res.json({
-      message: 'Logged out successfully'
+      success: true,
+      message: 'Token is valid',
+      data: payload
     });
   } catch (error) {
-    next(error);
-  }
-});
-
-// Logout from all devices
-router.post('/logout-all', authenticateToken, async (req, res, next) => {
-  try {
-    // Revoke all refresh tokens for the user
-    await revokeAllUserTokens(req.user.id);
-
-    res.json({
-      message: 'Logged out from all devices successfully'
+    const formattedError = formatErrorResponse(error);
+    res.status(formattedError.error.statusCode).json({
+      success: false,
+      error: formattedError
     });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Verify token endpoint
-router.get('/verify', authenticateToken, async (req, res, next) => {
-  try {
-    res.json({
-      valid: true,
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        mobile_number: req.user.mobile_number,
-        name: req.user.name,
-        role: req.user.role
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Get current user's active sessions
-router.get('/sessions', authenticateToken, async (req, res, next) => {
-  try {
-    const result = await query(
-      `SELECT id, created_at, created_ip, user_agent, expires_at 
-       FROM refresh_tokens 
-       WHERE user_id = $1 AND is_revoked = false AND expires_at > NOW()
-       ORDER BY created_at DESC`,
-      [req.user.id]
-    );
-
-    res.json({
-      sessions: result.rows
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Revoke specific session
-router.delete('/sessions/:sessionId', authenticateToken, async (req, res, next) => {
-  try {
-    const { sessionId } = req.params;
-
-    const result = await query(
-      `UPDATE refresh_tokens 
-       SET is_revoked = true 
-       WHERE id = $1 AND user_id = $2 AND is_revoked = false
-       RETURNING id`,
-      [sessionId, req.user.id]
-    );
-
-    if (result.rows.length === 0) {
-      throw new ValidationError('Session not found or already revoked');
-    }
-
-    res.json({
-      message: 'Session revoked successfully'
-    });
-  } catch (error) {
-    next(error);
   }
 });
 

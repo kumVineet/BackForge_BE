@@ -143,8 +143,8 @@ const createTables = async () => {
         tags JSONB,
         is_public BOOLEAN DEFAULT false,
         storage_type VARCHAR(20) DEFAULT 'local' CHECK (storage_type IN ('local', 's3', 'cloudinary')),
-        cloud_url TEXT,
         cloud_key VARCHAR(500),
+        file_hash VARCHAR(64),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )
@@ -171,6 +171,11 @@ const createTables = async () => {
       CREATE INDEX IF NOT EXISTS idx_file_uploads_created_at ON file_uploads(created_at)
     `);
 
+    // Create index on file_hash for duplicate detection
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_file_uploads_file_hash ON file_uploads(file_hash)
+    `);
+
     // Create trigger for file_uploads table
     await query(`
       DROP TRIGGER IF EXISTS update_file_uploads_updated_at ON file_uploads;
@@ -184,8 +189,7 @@ const createTables = async () => {
     console.log('📋 Created/Updated tables:');
     console.log('   - users (id, email, mobile_number, password, name, role, refresh_token, is_active, last_login, created_at, updated_at)');
     console.log('   - refresh_tokens (id, user_id, token, expires_at, is_revoked, created_at, created_ip, user_agent)');
-    console.log('   - notes (id, user_id, video_id, video_title, video_url, notes_content, file_path, file_size, status, processing_time, created_at, updated_at)');
-    console.log('   - file_uploads (id, user_id, original_name, filename, file_path, file_size, mime_type, category, title, description, tags, is_public, storage_type, cloud_url, cloud_key, created_at, updated_at)');
+    console.log('   - file_uploads (id, user_id, original_name, filename, file_path, file_size, mime_type, category, title, description, tags, is_public, storage_type, cloud_key, file_hash, created_at, updated_at)');
     console.log('   - Indexes on email, role, refresh tokens, notes, and file uploads');
     console.log('   - Automatic updated_at triggers');
 

@@ -91,27 +91,40 @@ class UserRepository extends BaseRepository {
   }
 
   /**
-   * Find users by role
-   * @param {string} role - User role
+   * Find all users with optional pagination (regular users only)
    * @param {Object} options - Query options
+   * @param {number} options.limit - Number of records to return
+   * @param {number} options.offset - Number of records to skip
+   * @param {string} options.orderBy - Column to order by
+   * @param {string} options.order - Order direction (ASC/DESC)
    * @returns {Promise<Array>} Array of users
    */
-  async findByRole(role, options = {}) {
-    const { limit = 100, offset = 0 } = options;
+  async findAll(options = {}) {
+    const { limit = 100, offset = 0, orderBy = 'id', order = 'ASC' } = options;
     
     const text = `
       SELECT * FROM ${this.tableName} 
-      WHERE role = $1 
-      ORDER BY created_at DESC 
-      LIMIT $2 OFFSET $3
+      WHERE role = 'user'
+      ORDER BY ${orderBy} ${order}
+      LIMIT $1 OFFSET $2
     `;
     
-    const result = await this.executeQuery(text, [role, limit, offset]);
+    const result = await this.executeQuery(text, [limit, offset]);
     return result.rows;
   }
 
   /**
-   * Search users by name or email
+   * Count total regular users
+   * @returns {Promise<number>} Total count of regular users
+   */
+  async count() {
+    const text = `SELECT COUNT(*) FROM ${this.tableName} WHERE role = 'user'`;
+    const result = await this.executeQuery(text);
+    return parseInt(result.rows[0].count);
+  }
+
+  /**
+   * Search users by name or mobile number (regular users only)
    * @param {string} searchTerm - Search term
    * @param {Object} options - Query options
    * @returns {Promise<Array>} Array of matching users
@@ -121,7 +134,7 @@ class UserRepository extends BaseRepository {
     
     const text = `
       SELECT * FROM ${this.tableName} 
-      WHERE name ILIKE $1 OR email ILIKE $1 
+      WHERE (name ILIKE $1 OR mobile_number ILIKE $1) AND role = 'user'
       ORDER BY created_at DESC 
       LIMIT $2 OFFSET $3
     `;

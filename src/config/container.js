@@ -4,9 +4,11 @@
  */
 const UserRepository = require('../repositories/UserRepository');
 const FileUploadRepository = require('../repositories/FileUploadRepository');
+const ProfileRepository = require('../repositories/ProfileRepository');
 const TokenService = require('../services/TokenService');
 const AuthService = require('../services/AuthService');
 const UserService = require('../services/UserService');
+const ProfileService = require('../services/ProfileService');
 const S3StorageService = require('../services/S3StorageService');
 const FileUploadService = require('../services/FileUploadService');
 
@@ -25,6 +27,7 @@ class Container {
       // Register repositories
       this.register('userRepository', () => new UserRepository());
       this.register('fileUploadRepository', () => new FileUploadRepository());
+      this.register('profileRepository', () => new ProfileRepository());
 
       // Register core services
       this.register('tokenService', () => new TokenService());
@@ -40,6 +43,11 @@ class Container {
       this.register('userService', () => {
         const userRepository = this.get('userRepository');
         return new UserService(userRepository);
+      });
+
+      this.register('profileService', () => {
+        const profileRepository = this.get('profileRepository');
+        return new ProfileService(profileRepository);
       });
 
       this.register('fileUploadService', () => {

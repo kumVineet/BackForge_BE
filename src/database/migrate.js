@@ -136,6 +136,55 @@ const createTables = async () => {
       CREATE INDEX IF NOT EXISTS idx_file_uploads_file_hash ON file_uploads(file_hash)
     `);
 
+    // Create profiles table for extended user information
+    await query(`
+      CREATE TABLE IF NOT EXISTS profiles (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+        avatar_url TEXT,
+        bio TEXT,
+        date_of_birth DATE,
+        gender VARCHAR(20) CHECK (gender IN ('male', 'female', 'other', 'prefer_not_to_say')),
+        location VARCHAR(255),
+        website VARCHAR(255),
+        social_links JSONB,
+        preferences JSONB,
+        skills TEXT[],
+        interests TEXT[],
+        occupation VARCHAR(255),
+        company VARCHAR(255),
+        education JSONB,
+        experience JSONB,
+        achievements JSONB,
+        contact_info JSONB,
+        privacy_settings JSONB,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `);
+
+    // Create indexes for profiles table
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id)
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_profiles_location ON profiles(location)
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_profiles_occupation ON profiles(occupation)
+    `);
+
+    // Create trigger for profiles table
+    await query(`
+      DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
+      CREATE TRIGGER update_profiles_updated_at
+        BEFORE UPDATE ON profiles
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column()
+    `);
+
     // Create trigger for file_uploads table
     await query(`
       DROP TRIGGER IF EXISTS update_file_uploads_updated_at ON file_uploads;
@@ -150,7 +199,8 @@ const createTables = async () => {
     console.log('   - users (id, email, mobile_number, password, name, role, refresh_token, is_active, last_login, created_at, updated_at)');
     console.log('   - refresh_tokens (id, user_id, token, expires_at, is_revoked, created_at, created_ip, user_agent)');
     console.log('   - file_uploads (id, user_id, original_name, filename, file_path, file_size, mime_type, category, title, description, tags, is_public, storage_type, cloud_key, file_hash, created_at, updated_at)');
-    console.log('   - Indexes on email, role, refresh tokens, notes, and file uploads');
+    console.log('   - profiles (id, user_id, avatar_url, bio, date_of_birth, gender, location, website, social_links, preferences, skills, interests, occupation, company, education, experience, achievements, contact_info, privacy_settings, created_at, updated_at)');
+    console.log('   - Indexes on email, role, refresh tokens, file uploads, and profiles');
     console.log('   - Automatic updated_at triggers');
 
   } catch (error) {

@@ -4,12 +4,14 @@ const router = express.Router();
 // Import route modules
 const authRoutes = require('./auth');
 const userRoutes = require('./users');
+const profileRoutes = require('./profiles');
 const uploadRoutes = require('./uploads');
 const workerRoutes = require('./workers');
 
 // Mount routes
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
+router.use('/profiles', profileRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/workers', workerRoutes);
 
@@ -21,6 +23,7 @@ router.get('/', (req, res) => {
     endpoints: {
       auth: '/auth',
       users: '/users',
+      profiles: '/profiles',
       uploads: '/uploads',
       workers: '/workers',
     }

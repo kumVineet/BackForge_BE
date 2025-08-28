@@ -5,12 +5,16 @@
 const UserRepository = require('../repositories/UserRepository');
 const FileUploadRepository = require('../repositories/FileUploadRepository');
 const ProfileRepository = require('../repositories/ProfileRepository');
+const ConversationRepository = require('../repositories/ConversationRepository');
+const MessageRepository = require('../repositories/MessageRepository');
 const TokenService = require('../services/TokenService');
 const AuthService = require('../services/AuthService');
 const UserService = require('../services/UserService');
 const ProfileService = require('../services/ProfileService');
 const S3StorageService = require('../services/S3StorageService');
 const FileUploadService = require('../services/FileUploadService');
+const ConversationService = require('../services/ConversationService');
+const MessageService = require('../services/MessageService');
 
 class Container {
   constructor() {
@@ -28,6 +32,8 @@ class Container {
       this.register('userRepository', () => new UserRepository());
       this.register('fileUploadRepository', () => new FileUploadRepository());
       this.register('profileRepository', () => new ProfileRepository());
+      this.register('conversationRepository', () => new ConversationRepository());
+      this.register('messageRepository', () => new MessageRepository());
 
       // Register core services
       this.register('tokenService', () => new TokenService());
@@ -54,6 +60,18 @@ class Container {
         const fileUploadRepository = this.get('fileUploadRepository');
         const s3StorageService = this.get('s3StorageService');
         return new FileUploadService(fileUploadRepository, s3StorageService);
+      });
+
+      this.register('conversationService', () => {
+        const conversationRepository = this.get('conversationRepository');
+        const messageRepository = this.get('messageRepository');
+        return new ConversationService(conversationRepository, messageRepository);
+      });
+
+      this.register('messageService', () => {
+        const messageRepository = this.get('messageRepository');
+        const conversationRepository = this.get('conversationRepository');
+        return new MessageService(messageRepository, conversationRepository);
       });
 
       console.log('✅ All services registered successfully');
@@ -211,9 +229,14 @@ class Container {
     // Check for common dependency properties
     if (instance.userRepository) dependencies.push('userRepository');
     if (instance.fileUploadRepository) dependencies.push('fileUploadRepository');
+    if (instance.profileRepository) dependencies.push('profileRepository');
+    if (instance.conversationRepository) dependencies.push('conversationRepository');
+    if (instance.messageRepository) dependencies.push('messageRepository');
     if (instance.tokenService) dependencies.push('tokenService');
     if (instance.s3StorageService) dependencies.push('s3StorageService');
     if (instance.fileUploadService) dependencies.push('fileUploadService');
+    if (instance.conversationService) dependencies.push('conversationService');
+    if (instance.messageService) dependencies.push('messageService');
     
     return dependencies;
   }

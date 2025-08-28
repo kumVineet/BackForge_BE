@@ -7,6 +7,8 @@ const userRoutes = require('./users');
 const profileRoutes = require('./profiles');
 const uploadRoutes = require('./uploads');
 const workerRoutes = require('./workers');
+const conversationRoutes = require('./conversations');
+const messageRoutes = require('./messages');
 
 // Mount routes
 router.use('/auth', authRoutes);
@@ -14,6 +16,8 @@ router.use('/users', userRoutes);
 router.use('/profiles', profileRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/workers', workerRoutes);
+router.use('/conversations', conversationRoutes);
+router.use('/messages', messageRoutes);
 
 // API info endpoint
 router.get('/', (req, res) => {
@@ -26,6 +30,8 @@ router.get('/', (req, res) => {
       profiles: '/profiles',
       uploads: '/uploads',
       workers: '/workers',
+      conversations: '/conversations',
+      messages: '/messages'
     }
   });
 });
